@@ -1,0 +1,12 @@
+{
+  "name": "company-dashboard",
+  "private": true,
+  "description": "HLE Drones sales-ops wallboard — Shopify + Aircall + Finale on a 1920x1080 board",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

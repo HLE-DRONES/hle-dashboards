@@ -1,0 +1,30 @@
+name = "company-dashboard"
+main = "src/worker.js"
+compatibility_date = "2026-01-01"
+
+# Static wallboard files. run_worker_first so every request passes the
+# Cloudflare Access JWT check before any asset is served.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+# Daily per-number Aircall call buckets (calls:v1:YYYY-MM-DD).
+# Create with: wrangler kv namespace create CALL_STATS
+# then paste the id below before the first deploy.
+[[kv_namespaces]]
+binding = "CALL_STATS"
+id = "REPLACE_AT_DEPLOY"
+
+[vars]
+# AUD of the dashboard.hle.team Cloudflare Access app. Empty until the app
+# is created (see README); while empty the Worker only serves localhost.
+ACCESS_AUD = ""
+
+# Secrets (set via `wrangler secret put <NAME>`, values in macOS Keychain):
+#   SHOPIFY_CLIENT_ID      — Keychain SHOPIFY_CLIENT_ID_dev_access_nuway
+#   SHOPIFY_CLIENT_SECRET  — Keychain SHOPIFY_CLIENT_SECRET_dev_access_nuway
+#   AIRCALL_API_ID         — Keychain aircall-api-id / drone-deer-recovery
+#   AIRCALL_API_TOKEN      — Keychain aircall-api-token / drone-deer-recovery
+#   FINALE_API_KEY         — Keychain finale-api-key
+#   FINALE_API_SECRET      — Keychain finale-api-secret
