@@ -16,8 +16,7 @@
   --status-success: #3e8e55;
   --status-warning: #d9a514;
   --status-danger: #c8401f;
-  --ddr: #d08b3c;
-  --nuway: #6f9bc5;
+  --bone: #f7f5f0;
   --font-body: 'Archivo', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
 }
@@ -73,11 +72,6 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
   padding: 28px 40px 32px;
   display: flex; flex-direction: column; gap: 24px;
 }
-
-/* Brand swatches */
-.sw { width: 9px; height: 9px; border-radius: 2px; flex: none; display: inline-block; }
-.sw.ddr { background: var(--ddr); }
-.sw.nuway { background: var(--nuway); }
 
 /* ===== Hero strip ===== */
 .hero {
@@ -138,9 +132,7 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
 .charts { padding: 26px 32px 22px; gap: 18px; }
 .legend { display: flex; align-items: center; gap: 24px; }
 .legend-item { display: flex; align-items: center; gap: 10px; }
-.legend-line { width: 26px; height: 3px; border-radius: 2px; }
-.legend-line.ddr { background: var(--ddr); }
-.legend-line.nuway { background: var(--nuway); }
+.legend-line { width: 26px; height: 3px; border-radius: 2px; background: var(--bone); }
 .legend-dash { width: 26px; height: 0; border-top: 2px dashed var(--gray-500); }
 .legend-label { font: 500 13px/1 var(--font-mono); letter-spacing: 0.1em; color: var(--gray-400); }
 .charts-stack {
@@ -169,13 +161,13 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
 .inv-rows { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; }
 .inv-row {
   display: grid; grid-template-columns: 1fr 64px; align-items: center;
-  gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--hairline);
+  gap: 16px; padding: 4px 0; border-bottom: 1px solid var(--hairline);
 }
 .inv-row:last-child { border-bottom: none; }
 .inv-name { display: flex; flex-direction: column; gap: 7px; }
 .inv-label { font: 500 16px/1.2 var(--font-body); color: var(--gray-300); }
 .inv-bar { height: 3px; background: var(--hairline); border-radius: 2px; position: relative; }
-.inv-bar-fill { position: absolute; inset: 0; border-radius: 2px; }
+.inv-bar-fill { position: absolute; inset: 0; border-radius: 2px; background: var(--gray-400); }
 .inv-qty {
   font: 600 22px/1 var(--font-mono); color: var(--white);
   text-align: right; font-variant-numeric: tabular-nums;
@@ -187,10 +179,22 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
   display: flex; justify-content: space-between; align-items: baseline;
   padding: 10px 0; border-bottom: 1px solid var(--hairline);
 }
-.calls30-row:last-child { border-bottom: none; }
-.calls30-name { display: flex; align-items: center; gap: 10px; font: 500 16px/1.2 var(--font-body); color: var(--gray-300); }
-.calls30-name .sw { width: 8px; height: 8px; }
+.calls30-name { font: 500 16px/1.2 var(--font-body); color: var(--gray-300); }
 .calls30-num { font: 600 22px/1 var(--font-mono); color: var(--white); font-variant-numeric: tabular-nums; }
+.talk-time {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 12px 0 2px;
+}
+.talk-left { display: flex; flex-direction: column; gap: 4px; }
+.talk-eyebrow {
+  font: 600 11px/1.2 var(--font-body); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--gray-500);
+}
+.talk-name { font: 500 16px/1.2 var(--font-body); color: var(--gray-300); }
+.talk-dur {
+  font: 600 22px/1 var(--font-mono); color: var(--white);
+  align-self: flex-end; font-variant-numeric: tabular-nums;
+}
 
 /* Ledger */
 .ledger { gap: 10px; }
@@ -204,8 +208,7 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
 .ledger-count { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; min-width: 92px; }
 .ledger-sold { font: 600 30px/1 var(--font-mono); color: var(--white); font-variant-numeric: tabular-nums; }
 .ledger-target { font: 500 16px/1 var(--font-mono); color: var(--gray-500); font-variant-numeric: tabular-nums; }
-.ledger-name { display: flex; align-items: center; gap: 10px; flex: 1; font: 500 16px/1.2 var(--font-body); color: var(--gray-300); white-space: nowrap; min-width: 0; }
-.ledger-name .sw { width: 8px; height: 8px; }
+.ledger-name { flex: 1; font: 500 16px/1.2 var(--font-body); color: var(--gray-300); white-space: nowrap; min-width: 0; }
 .ledger-delta { font: 600 15px/1 var(--font-mono); }
 .ledger-delta.up { color: var(--status-success); }
 .ledger-delta.down { color: var(--status-danger); }
@@ -238,5 +241,4 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
   font: 600 12px/1.2 var(--font-body); letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--gray-500);
 }
-.foot-legend { display: flex; align-items: center; gap: 28px; }
 .foot-tag { font: 500 13px/1 var(--font-mono); letter-spacing: 0.1em; color: var(--gray-500); }

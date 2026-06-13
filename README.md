@@ -44,7 +44,7 @@ Localhost skips the Access JWT check; everything else requires it.
 - `/api/data` is cached ~4 min and served stale-while-revalidate up to 1 h,
   so the board never blocks on the ~15 s aggregation.
 - Aircall can't filter calls by number server-side; completed days are
-  bucketed per-number into KV (`calls:v1:YYYY-MM-DD`). On a fresh deploy the
+  bucketed per-number into KV (`calls:v2:YYYY-MM-DD`). On a fresh deploy the
   30-day panel self-backfills over the first ~30–40 min of refreshes
   (`historyMissingDays` in the payload shows progress).
 - Ledger badges: green "On target" when sold ≥ weekly target; red "Review"

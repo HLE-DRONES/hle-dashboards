@@ -210,9 +210,9 @@
     ddrLine.appendChild(document.createTextNode((dDdr >= 0 ? '+' : '') + dDdr + ' '));
     ddrLine.appendChild(el('span', 'dim', 'VS YESTERDAY'));
 
-    // Charts
-    renderChart('chart-ddr', 'months-ddr', data.sales.ddr.series, '#d08b3c', data.sales.seriesStart);
-    renderChart('chart-nuway', 'months-nuway', data.sales.nuway.series, '#6f9bc5', data.sales.seriesStart);
+    // Charts — monochrome bone per the final design
+    renderChart('chart-ddr', 'months-ddr', data.sales.ddr.series, '#f7f5f0', data.sales.seriesStart);
+    renderChart('chart-nuway', 'months-nuway', data.sales.nuway.series, '#f7f5f0', data.sales.seriesStart);
 
     // Inventory
     var inv = $('inventory');
@@ -225,7 +225,6 @@
       var bar = el('span', 'inv-bar');
       var fill = el('span', 'inv-bar-fill');
       fill.style.width = Math.max(1, Math.round(item.qty / maxQty * 100)) + '%';
-      fill.style.background = item.brand === 'ddr' ? '#d08b3c' : '#6f9bc5';
       bar.appendChild(fill);
       name.appendChild(bar);
       row.appendChild(name);
@@ -238,13 +237,21 @@
     c30.innerHTML = '';
     data.calls.last30.forEach(function (r) {
       var row = el('div', 'calls30-row');
-      var name = el('span', 'calls30-name');
-      name.appendChild(el('span', 'sw ' + r.brand));
-      name.appendChild(document.createTextNode(r.label));
-      row.appendChild(name);
+      row.appendChild(el('span', 'calls30-name', r.label));
       row.appendChild(el('span', 'calls30-num', String(r.total)));
       c30.appendChild(row);
     });
+
+    // Talk time today — top agent
+    var tt = data.calls.talkTime;
+    $('talk-name').textContent = tt && tt.name ? tt.name : '—';
+    if (tt && tt.seconds > 0) {
+      var mins = Math.floor(tt.seconds / 60);
+      var secs = tt.seconds % 60;
+      $('talk-dur').textContent = (mins >= 60 ? Math.floor(mins / 60) + 'H ' + (mins % 60) + 'M' : mins + 'M ' + secs + 'S');
+    } else {
+      $('talk-dur').textContent = '—';
+    }
 
     // Sold this week ledger
     var ledger = $('soldWeek');
@@ -257,10 +264,7 @@
       count.appendChild(el('span', 'ledger-sold', String(r.sold)));
       count.appendChild(el('span', 'ledger-target', '/' + r.target));
       row.appendChild(count);
-      var name = el('span', 'ledger-name');
-      name.appendChild(el('span', 'sw ' + r.brand));
-      name.appendChild(document.createTextNode(r.label));
-      row.appendChild(name);
+      row.appendChild(el('span', 'ledger-name', r.label));
       var cls = r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : r.sold === 0 ? 'zero' : 'flat';
       var txt = r.delta > 0 ? '+' + r.delta : r.delta < 0 ? String(r.delta) : r.sold === 0 ? '0' : '—';
       row.appendChild(el('span', 'ledger-delta ' + cls, txt));

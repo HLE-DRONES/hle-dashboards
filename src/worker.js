@@ -66,7 +66,7 @@ const SOLD_ROWS = [
   { label: 'Matrice 4T', store: 'ddr', rule: { equals: 'DJI-ENT-DRN-M4T' }, target: 12, brand: 'ddr' },
   { label: 'Monitor', store: 'ddr', rule: { prefix: 'DDR-MNT-HSHC-24' }, target: 10, brand: 'ddr' },
   { label: 'T100', store: 'nuway', rule: { equals: 'DJI-AGR-DR-T100' }, target: 15, brand: 'nuway' },
-  { label: 'Matrice 4TD', store: 'ddr', rule: { prefix: 'DJI-ENT-DRN-M4TD' }, target: 10, brand: 'ddr' },
+  { label: 'Matrice 4TD', store: 'ddr', rule: { prefix: 'DJI-ENT-DRN-M4TD' }, target: 6, brand: 'ddr' },
   { label: 'FastPass', store: 'nuway', rule: { equals: 'NUW-CMP-P37-PT137-PP' }, target: 5, brand: 'nuway' },
   { label: 'nuWay Ag Trailer', store: 'nuway', rule: { prefixAny: ['NUW-TRL-MLDT-', 'NUW-TRL-MEGA-'] }, target: 3, brand: 'nuway' },
   { label: 'T50 Drone', store: 'nuway', rule: { equals: 'DJI-AGR-DRN-T50' }, target: 4, brand: 'nuway' },
@@ -324,11 +324,14 @@ function aircallAuth(env) {
   return 'Basic ' + btoa(`${env.AIRCALL_API_ID}:${env.AIRCALL_API_TOKEN}`);
 }
 
-// All inbound calls in [fromSec, toSec] → [{ numberId, missed, startedAt }].
-async function aircallInbound(env, fromSec, toSec) {
+// Calls in [fromSec, toSec] → [{ numberId, direction, missed, startedAt,
+// talkSec, agent }]. NOTE: Aircall's /v1/calls silently ignores `direction`
+// and `number_id` query params (verified 2026-06-12) — every filter must be
+// applied client-side.
+async function aircallCalls(env, fromSec, toSec) {
   const out = [];
-  let url = `https://api.aircall.io/v1/calls?direction=inbound&order=asc&per_page=50&from=${fromSec}&to=${toSec}`;
-  for (let page = 0; page < 40 && url; page++) {
+  let url = `https://api.aircall.io/v1/calls?order=asc&per_page=50&from=${fromSec}&to=${toSec}`;
+  for (let page = 0; page < 60 && url; page++) {
     const resp = await fetch(url, { headers: { Authorization: aircallAuth(env) } });
     if (resp.status === 429) { await new Promise((r) => setTimeout(r, 2000)); page--; continue; }
     if (!resp.ok) throw new Error(`Aircall ${resp.status}`);
@@ -336,13 +339,30 @@ async function aircallInbound(env, fromSec, toSec) {
     for (const c of data.calls || []) {
       out.push({
         numberId: c.number?.id ?? 0,
+        direction: c.direction,
         missed: !c.answered_at,
         startedAt: c.started_at,
+        talkSec: c.answered_at && c.ended_at ? Math.max(0, c.ended_at - c.answered_at) : 0,
+        agent: c.user?.name || null,
       });
     }
     url = data.meta?.next_page_link || null;
   }
   return out;
+}
+
+const aircallInbound = async (env, fromSec, toSec) =>
+  (await aircallCalls(env, fromSec, toSec)).filter((c) => c.direction === 'inbound');
+
+// Top agent by total talk time (answered calls, both directions).
+function topTalker(calls) {
+  const byAgent = {};
+  for (const c of calls) {
+    if (!c.agent || !c.talkSec) continue;
+    byAgent[c.agent] = (byAgent[c.agent] || 0) + c.talkSec;
+  }
+  const top = Object.entries(byAgent).sort((a, b) => b[1] - a[1])[0];
+  return top ? { name: top[0], seconds: top[1] } : null;
 }
 
 function tallyCalls(calls, ids) {
@@ -375,7 +395,7 @@ async function aircallDayBucket(env, ymd) {
 async function aircallHistory(env, ctx, todayYmd, maxBackfill = 4) {
   const days = [];
   for (let i = 1; i <= 29; i++) days.push(addDays(todayYmd, -i));
-  const got = await Promise.all(days.map((d) => env.CALL_STATS.get(`calls:v1:${d}`, 'json')));
+  const got = await Promise.all(days.map((d) => env.CALL_STATS.get(`calls:v2:${d}`, 'json')));
   const buckets = {};
   const missing = [];
   days.forEach((d, i) => {
@@ -387,7 +407,7 @@ async function aircallHistory(env, ctx, todayYmd, maxBackfill = 4) {
       for (const d of missing.slice(0, maxBackfill)) {
         try {
           const b = await aircallDayBucket(env, d);
-          await env.CALL_STATS.put(`calls:v1:${d}`, JSON.stringify(b));
+          await env.CALL_STATS.put(`calls:v2:${d}`, JSON.stringify(b));
         } catch { break; } // rate-limited or down — next refresh retries
       }
     })());
@@ -457,7 +477,7 @@ async function buildData(env, ctx) {
     guard('ddrSold', shopifySoldUnits(env, 'ddr', weekStart, nowMs), {}),
     guard('nuwaySoldPrev', shopifySoldUnits(env, 'nuway', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
     guard('ddrSoldPrev', shopifySoldUnits(env, 'ddr', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
-    guard('callsToday', aircallInbound(env, Math.floor(todayStart / 1000), Math.floor(nowMs / 1000)), []),
+    guard('callsToday', aircallCalls(env, Math.floor(todayStart / 1000), Math.floor(nowMs / 1000)), []),
     guard('callsYesterday', aircallInbound(env, Math.floor(todayStart / 1000) - 86400, Math.floor(todayStart / 1000) - 1), []),
     guard('callsHistory', aircallHistory(env, ctx, todayYmd), { buckets: {}, missingDays: 29 }),
     guard('inventory', finaleStock(env), []),
@@ -473,7 +493,7 @@ async function buildData(env, ctx) {
       e.in++;
       if (c.missed) e.missed++;
     }
-    ctx.waitUntil(env.CALL_STATS.put(`calls:v1:${yesterdayYmd}`, JSON.stringify(b)));
+    ctx.waitUntil(env.CALL_STATS.put(`calls:v2:${yesterdayYmd}`, JSON.stringify(b)));
     history.buckets[yesterdayYmd] = b;
     history.missingDays = Math.max(0, history.missingDays - 1);
   }
@@ -491,18 +511,20 @@ async function buildData(env, ctx) {
   for (let i = 179; i >= 0; i--) seriesDays.push(addDays(todayYmd, -i));
   const series = (daily) => seriesDays.map((d) => Math.round(daily[d] || 0));
 
-  // --- Calls: hero boxes ---
+  // --- Calls: hero boxes (inbound only; callsToday includes outbound for
+  // the talk-time leaderboard) ---
+  const inboundToday = callsToday.filter((c) => c.direction === 'inbound');
   const sameTimeCut = (nowMs - todayStart) / 1000; // seconds into the ET day
   const yStartSec = Math.floor(todayStart / 1000) - 86400;
   const ySameTime = callsYesterday.filter((c) => c.startedAt - yStartSec <= sameTimeCut);
   const box = (ids) => ({
-    today: tallyCalls(callsToday, ids),
+    today: tallyCalls(inboundToday, ids),
     yesterdaySameTime: tallyCalls(ySameTime, ids).total,
   });
 
   // --- Calls: 30-day panel (29 completed days from KV + today live) ---
   const last30 = CALLS_30D_ROWS.map((row) => {
-    let n = tallyCalls(callsToday, row.ids).total;
+    let n = tallyCalls(inboundToday, row.ids).total;
     for (const b of Object.values(history.buckets)) {
       for (const id of row.ids) n += b[id]?.in || 0;
     }
@@ -536,6 +558,7 @@ async function buildData(env, ctx) {
       nuwayService: { oh: box([LINES.ohService]), ks: box([LINES.ksService]) },
       ddrSales: box([LINES.ddrSales]),
       last30,
+      talkTime: topTalker(callsToday),
       historyMissingDays: history.missingDays,
     },
     inventory: [...inventory].sort((a, b) => b.qty - a.qty),
