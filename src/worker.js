@@ -48,8 +48,15 @@ const CALLS_30D_ROWS = [
   { label: 'Drone Deer', ids: [LINES.ddrSales], brand: 'ddr' },
 ];
 
-// "Inventory — Available" panel (Finale). available = onHand − reserved,
-// summed across all facilities and across the listed SKUs.
+// Finale warehouse facilities — the inventory panel reports availability
+// per warehouse (Ohio + Kansas). Facility ids confirmed in the monday-morning
+// scorecard. available = onHand − reserved, per facility, across the SKUs.
+const FINALE_FACILITIES = {
+  oh: '/hledrones/api/facility/100000', // Ohio Warehouse
+  ks: '/hledrones/api/facility/102661', // Kansas Warehouse
+};
+
+// "Inventory — Available" panel (Finale). Each row shows OH + KS counts.
 const INVENTORY_ITEMS = [
   { label: 'T100', skus: ['DJI-AGR-DR-T100'], brand: 'nuway' },
   { label: 'Generators', skus: ['TLS-AGR-T60X-GNR'], brand: 'nuway' },
@@ -419,12 +426,15 @@ async function aircallHistory(env, ctx, todayYmd, maxBackfill = 4) {
 
 async function finaleStock(env) {
   const allSkus = INVENTORY_ITEMS.flatMap((i) => i.skus);
+  const { oh, ks } = FINALE_FACILITIES;
   const q = `query($skus: [String]) {
     productViewConnection(first: ${allSkus.length}, productId: $skus) {
       edges { node {
         productId
-        onHand: stockOnHand(aggregate: sum, count: totalUnits)
-        reserved: stockReserved(aggregate: sum, count: totalUnits)
+        onHandOH:   stockOnHand(aggregate: sum, count: totalUnits, facilityUrlList: "${oh}")
+        reservedOH: stockReserved(aggregate: sum, count: totalUnits, facilityUrlList: "${oh}")
+        onHandKS:   stockOnHand(aggregate: sum, count: totalUnits, facilityUrlList: "${ks}")
+        reservedKS: stockReserved(aggregate: sum, count: totalUnits, facilityUrlList: "${ks}")
       } }
     }
   }`;
@@ -437,17 +447,20 @@ async function finaleStock(env) {
   if (!resp.ok) throw new Error(`Finale ${resp.status}`);
   const data = await resp.json();
   if (!data.data) throw new Error(`Finale GraphQL: ${JSON.stringify(data).slice(0, 200)}`);
+  const num = (s) => (s === null || s === undefined || s === '--' ? 0 : parseInt(String(s).replace(/,/g, ''), 10) || 0);
   const bySku = {};
   for (const e of data.data.productViewConnection.edges) {
     const n = e.node;
-    const num = (s) => (s === null || s === undefined || s === '--' ? 0 : parseInt(String(s).replace(/,/g, ''), 10) || 0);
-    bySku[n.productId] = num(n.onHand) - num(n.reserved);
+    bySku[n.productId] = {
+      oh: num(n.onHandOH) - num(n.reservedOH),
+      ks: num(n.onHandKS) - num(n.reservedKS),
+    };
   }
-  return INVENTORY_ITEMS.map((i) => ({
-    label: i.label,
-    brand: i.brand,
-    qty: i.skus.reduce((s, sku) => s + (bySku[sku] ?? 0), 0),
-  }));
+  return INVENTORY_ITEMS.map((i) => {
+    const oh = i.skus.reduce((s, sku) => s + (bySku[sku]?.oh ?? 0), 0);
+    const ks = i.skus.reduce((s, sku) => s + (bySku[sku]?.ks ?? 0), 0);
+    return { label: i.label, brand: i.brand, oh, ks, qty: oh + ks };
+  });
 }
 
 // ---------- AGGREGATION ----------

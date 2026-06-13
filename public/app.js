@@ -214,10 +214,16 @@
     renderChart('chart-ddr', 'months-ddr', data.sales.ddr.series, '#f7f5f0', data.sales.seriesStart);
     renderChart('chart-nuway', 'months-nuway', data.sales.nuway.series, '#f7f5f0', data.sales.seriesStart);
 
-    // Inventory
+    // Inventory — OH + KS per row
     var inv = $('inventory');
     inv.innerHTML = '';
     var maxQty = Math.max.apply(null, data.inventory.map(function (i) { return i.qty; }).concat([1]));
+    function invCell(qty, loc) {
+      var cell = el('span', 'inv-cell');
+      cell.appendChild(el('span', 'inv-qty', String(qty)));
+      cell.appendChild(el('span', 'inv-loc', loc));
+      return cell;
+    }
     data.inventory.forEach(function (item) {
       var row = el('div', 'inv-row');
       var name = el('span', 'inv-name');
@@ -228,7 +234,8 @@
       bar.appendChild(fill);
       name.appendChild(bar);
       row.appendChild(name);
-      row.appendChild(el('span', 'inv-qty', String(item.qty)));
+      row.appendChild(invCell(item.oh, 'OH'));
+      row.appendChild(invCell(item.ks, 'KS'));
       inv.appendChild(row);
     });
 
