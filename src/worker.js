@@ -581,36 +581,37 @@ async function buildData(env, ctx) {
 }
 
 // ---------- CACHING ----------
-
-// Bump the version segment whenever the payload SHAPE changes, so a deploy
-// is a clean cache miss instead of serving the old shape for up to an hour.
-const CACHE_KEY = 'https://hle-dashboards.internal/api/data?v=2-ohks';
+//
+// The payload is kept warm in KV (globally replicated) by a cron every 5 min,
+// so user requests NEVER block on the ~10 s aggregation — they just read the
+// last warmed payload from KV. caches.default was per-colo, so every new
+// viewer location cold-started; KV is global and shared with the cron.
+//
+// Bump the key version whenever the payload SHAPE changes so a deploy is a
+// clean miss instead of serving the old shape.
+const KV_PAYLOAD_KEY = 'payload:v2-ohks';
 
 async function getData(env, ctx) {
-  const cache = caches.default;
-  const hit = await cache.match(CACHE_KEY);
-  if (hit) {
-    const body = await hit.json();
-    const age = Date.now() - new Date(body.generatedAt).getTime();
-    if (age < FRESH_MS) return body;
-    if (age < STALE_MS) {
-      ctx.waitUntil(refreshCache(env, ctx));
-      return body;
-    }
+  const cached = await env.CALL_STATS.get(KV_PAYLOAD_KEY, 'json');
+  if (cached) {
+    const age = Date.now() - new Date(cached.generatedAt).getTime();
+    // If the cron has stalled and the payload is very stale, kick a background
+    // refresh — but still return instantly so the viewer never waits.
+    if (age > STALE_MS && ctx) ctx.waitUntil(refreshAndStore(env, ctx));
+    return cached;
   }
-  return refreshCache(env, ctx);
+  // Cold (KV empty — first deploy before any cron fired): build once on demand.
+  return refreshAndStore(env, ctx);
 }
 
 let refreshing = null; // collapse concurrent refreshes within an isolate
 
-async function refreshCache(env, ctx) {
+async function refreshAndStore(env, ctx) {
   if (refreshing) return refreshing;
   refreshing = (async () => {
     try {
       const data = await buildData(env, ctx);
-      await caches.default.put(CACHE_KEY, new Response(JSON.stringify(data), {
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${Math.floor(STALE_MS / 1000)}` },
-      }));
+      await env.CALL_STATS.put(KV_PAYLOAD_KEY, JSON.stringify(data));
       return data;
     } finally {
       refreshing = null;
@@ -652,5 +653,11 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  // Cron (every 5 min) keeps the KV payload warm so viewers always read a
+  // fresh result instantly instead of triggering the slow aggregation.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(refreshAndStore(env, ctx));
   },
 };
