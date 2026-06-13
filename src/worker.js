@@ -22,7 +22,7 @@
 // ---------- CONFIG ----------
 
 const TZ = 'America/New_York';
-const CANONICAL_HOST = 'dashboard.hle.team';
+const CANONICAL_HOST = 'dashboards.hle.team';
 
 const FRESH_MS = 4 * 60 * 1000;        // serve cached as-is under 4 min
 const STALE_MS = 60 * 60 * 1000;       // serve stale + background refresh under 1 h
@@ -569,7 +569,7 @@ async function buildData(env, ctx) {
 
 // ---------- CACHING ----------
 
-const CACHE_KEY = 'https://company-dashboard.internal/api/data';
+const CACHE_KEY = 'https://hle-dashboards.internal/api/data';
 
 async function getData(env, ctx) {
   const cache = caches.default;

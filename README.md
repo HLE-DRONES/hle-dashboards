@@ -48,7 +48,7 @@ Localhost skips the Access JWT check; everything else requires it.
 1. `wrangler kv namespace create CALL_STATS` → paste id into `wrangler.toml`.
 2. `wrangler secret put` each secret listed in `wrangler.toml` (values from Keychain).
 3. `wrangler deploy`.
-4. Custom domain `dashboard.hle.team` + Access app via the curl recipe in the
+4. Custom domain `dashboards.hle.team` + Access app via the curl recipe in the
    hle-team-access memory; paste the returned `aud` into `[vars] ACCESS_AUD`,
    redeploy.
 5. Add a card to `PROJECTS/hle-team-home/src/index.ts`.
