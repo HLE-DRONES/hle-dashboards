@@ -1,4 +1,4 @@
-name = "company-dashboard"
+name = "hle-dashboards"
 main = "src/worker.js"
 compatibility_date = "2026-01-01"
 
@@ -17,7 +17,7 @@ binding = "CALL_STATS"
 id = "REPLACE_AT_DEPLOY"
 
 [vars]
-# AUD of the dashboard.hle.team Cloudflare Access app. Empty until the app
+# AUD of the dashboards.hle.team Cloudflare Access app. Empty until the app
 # is created (see README); while empty the Worker only serves localhost.
 ACCESS_AUD = ""
 

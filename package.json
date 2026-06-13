@@ -1,5 +1,5 @@
 {
-  "name": "company-dashboard",
+  "name": "hle-dashboards",
   "private": true,
   "description": "HLE Drones sales-ops wallboard — Shopify + Aircall + Finale on a 1920x1080 board",
   "scripts": {

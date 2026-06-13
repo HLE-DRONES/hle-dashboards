@@ -1,4 +1,18 @@
-# Company Dashboard — HLE Sales Ops Wallboard
+# HLE Dashboards — Sales Ops Wallboards
+
+Multi-dashboard project: the header band is a nav (`public/boards.js`), with
+the Company Dashboard at `/` and room for future boards beside it.
+
+## Adding a dashboard
+
+1. Add `{ path: '/sales', label: 'Sales' }` to `BOARDS` in `public/boards.js`.
+2. Create `public/sales.html` — copy the header band + footer from
+   `index.html` (keep the `#band-nav` element and the `boards.js` include);
+   the asset handler serves `/sales` from `sales.html` automatically.
+3. If it needs live data, add an endpoint in `src/worker.js` (e.g.
+   `/api/sales`) next to `/api/data`.
+
+## Company Dashboard (`/`)
 
 1920×1080 wallboard (scales to any screen) showing live company numbers,
 built from the Claude Design handoff "Company Dashboard - HLE" on the
@@ -34,7 +48,7 @@ Localhost skips the Access JWT check; everything else requires it.
 1. `wrangler kv namespace create CALL_STATS` → paste id into `wrangler.toml`.
 2. `wrangler secret put` each secret listed in `wrangler.toml` (values from Keychain).
 3. `wrangler deploy`.
-4. Custom domain `dashboard.hle.team` + Access app via the curl recipe in the
+4. Custom domain `dashboards.hle.team` + Access app via the curl recipe in the
    hle-team-access memory; paste the returned `aud` into `[vars] ACCESS_AUD`,
    redeploy.
 5. Add a card to `PROJECTS/hle-team-home/src/index.ts`.
@@ -44,7 +58,7 @@ Localhost skips the Access JWT check; everything else requires it.
 - `/api/data` is cached ~4 min and served stale-while-revalidate up to 1 h,
   so the board never blocks on the ~15 s aggregation.
 - Aircall can't filter calls by number server-side; completed days are
-  bucketed per-number into KV (`calls:v1:YYYY-MM-DD`). On a fresh deploy the
+  bucketed per-number into KV (`calls:v2:YYYY-MM-DD`). On a fresh deploy the
   30-day panel self-backfills over the first ~30–40 min of refreshes
   (`historyMissingDays` in the payload shows progress).
 - Ledger badges: green "On target" when sold ≥ weekly target; red "Review"

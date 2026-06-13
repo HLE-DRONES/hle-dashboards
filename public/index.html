@@ -15,7 +15,7 @@
     <div class="band-left">
       <span class="logo"><span class="logo-hle">HLE</span><span class="logo-drones">DRONES</span></span>
       <span class="band-divider"></span>
-      <span class="band-title">Company Dashboard</span>
+      <nav class="band-nav" id="band-nav"></nav>
     </div>
     <div class="band-right">
       <span class="live"><span class="live-dot"></span><span class="live-label">LIVE</span></span>
@@ -30,17 +30,17 @@
     <!-- Hero telemetry strip -->
     <section class="hero">
       <div class="hero-cell">
-        <span class="cell-label"><span class="sw ddr"></span>Sales MTD — Drone Deer</span>
+        <span class="cell-label">Sales MTD — Drone Deer</span>
         <span class="big-num" id="mtd-ddr">—</span>
         <span class="cell-sub" id="mtd-range-1"></span>
       </div>
       <div class="hero-cell">
-        <span class="cell-label"><span class="sw nuway"></span>Sales MTD — nuWay Ag</span>
+        <span class="cell-label">Sales MTD — nuWay Ag</span>
         <span class="big-num" id="mtd-nuway">—</span>
         <span class="cell-sub" id="mtd-range-2"></span>
       </div>
       <div class="hero-cell">
-        <span class="cell-label"><span class="sw nuway"></span>Sales Calls — nuWay Ag</span>
+        <span class="cell-label">Sales Calls — nuWay Ag</span>
         <span class="call-pair">
           <span class="call-num"><span class="big-num" id="calls-sales-oh">—</span><span class="call-state">OH</span></span>
           <span class="call-num"><span class="big-num" id="calls-sales-ks">—</span><span class="call-state">KS</span></span>
@@ -51,7 +51,7 @@
         </span>
       </div>
       <div class="hero-cell">
-        <span class="cell-label"><span class="sw nuway"></span>Service Calls — nuWay Ag</span>
+        <span class="cell-label">Service Calls — nuWay Ag</span>
         <span class="call-pair">
           <span class="call-num"><span class="big-num" id="calls-svc-oh">—</span><span class="call-state">OH</span></span>
           <span class="call-num"><span class="big-num" id="calls-svc-ks">—</span><span class="call-state">KS</span></span>
@@ -62,7 +62,7 @@
         </span>
       </div>
       <div class="hero-cell">
-        <span class="cell-label"><span class="sw ddr"></span>Sales Calls — Drone Deer Recovery</span>
+        <span class="cell-label">Sales Calls — Drone Deer Recovery</span>
         <span class="big-num" id="calls-ddr">—</span>
         <span class="cell-stack">
           <span class="mono-line danger" id="calls-ddr-missed"></span>
@@ -79,19 +79,18 @@
         <div class="card-head">
           <span class="card-title">Sales — Last 90 Days</span>
           <span class="legend">
-            <span class="legend-item"><span class="legend-line ddr"></span><span class="legend-label">DRONE DEER</span></span>
-            <span class="legend-item"><span class="legend-line nuway"></span><span class="legend-label">NUWAY AG</span></span>
+            <span class="legend-item"><span class="legend-line"></span><span class="legend-label">CURRENT</span></span>
             <span class="legend-item"><span class="legend-dash"></span><span class="legend-label">PRIOR PERIOD</span></span>
           </span>
         </div>
         <div class="charts-stack">
           <div class="chart-block">
-            <span class="chart-name"><span class="sw ddr"></span>Drone Deer</span>
+            <span class="chart-name">Drone Deer</span>
             <div class="chart-plot" id="chart-ddr"></div>
             <div class="chart-months" id="months-ddr"></div>
           </div>
           <div class="chart-block">
-            <span class="chart-name"><span class="sw nuway"></span>nuWay Ag</span>
+            <span class="chart-name">nuWay Ag</span>
             <div class="chart-plot" id="chart-nuway"></div>
             <div class="chart-months" id="months-nuway"></div>
           </div>
@@ -107,6 +106,13 @@
         <div class="card calls30">
           <span class="card-title">Calls — Inbound 30 Days</span>
           <div class="calls30-rows" id="calls30"></div>
+          <div class="talk-time">
+            <span class="talk-left">
+              <span class="talk-eyebrow">Talk Time Today</span>
+              <span class="talk-name" id="talk-name">—</span>
+            </span>
+            <span class="talk-dur" id="talk-dur">—</span>
+          </div>
         </div>
       </div>
 
@@ -123,16 +129,13 @@
     <!-- Footer line -->
     <footer class="foot">
       <span class="foot-motto">Help — Lead — Educate</span>
-      <span class="foot-legend">
-        <span class="legend-item"><span class="sw ddr"></span><span class="legend-label">DRONE DEER RECOVERY</span></span>
-        <span class="legend-item"><span class="sw nuway"></span><span class="legend-label">NUWAY AG</span></span>
-      </span>
       <span class="foot-tag">HLE TEAMS — SALES OPS WALLBOARD</span>
     </footer>
 
   </main>
 </div>
 </div>
+<script src="/boards.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
