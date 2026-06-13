@@ -141,13 +141,17 @@
     svg.appendChild(poly(cur.slice(cur.length - 2), {
       stroke: color, 'stroke-width': '3', 'stroke-dasharray': '2 8', 'stroke-linecap': 'round',
     }));
-    var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    dot.setAttribute('cx', solid[solid.length - 1][0]);
-    dot.setAttribute('cy', solid[solid.length - 1][1]);
-    dot.setAttribute('r', '5');
-    dot.setAttribute('fill', color);
-    svg.appendChild(dot);
     plot.appendChild(svg);
+
+    // End-of-line dot as an HTML overlay (a real circle). Drawing it in the
+    // SVG would stretch it into an ellipse, since the viewBox uses
+    // preserveAspectRatio="none" to make the lines fill the plot.
+    var last = solid[solid.length - 1];
+    var dot = el('span', 'chart-dot');
+    dot.style.left = (last[0] / VB_W * 100) + '%';
+    dot.style.top = (last[1] / VB_H * 100) + '%';
+    dot.style.background = color;
+    plot.appendChild(dot);
 
     // HTML axis labels overlaid on the gridlines (crisp — not scaled SVG text).
     [[Y_TOP, max], [(Y_TOP + Y_BOT) / 2, max / 2], [Y_BOT, 0]].forEach(function (g) {
@@ -239,13 +243,20 @@
       inv.appendChild(row);
     });
 
-    // Calls 30 days
+    // Calls — this week vs last week (inbound)
     var c30 = $('calls30');
     c30.innerHTML = '';
-    data.calls.last30.forEach(function (r) {
+    data.calls.week.forEach(function (r) {
       var row = el('div', 'calls30-row');
       row.appendChild(el('span', 'calls30-name', r.label));
-      row.appendChild(el('span', 'calls30-num', String(r.total)));
+      var nums = el('span', 'calls30-nums');
+      var cur = el('span', 'calls30-num', String(r.thisWeek));
+      // Ahead of last week's same-point pace → green; behind → red.
+      if (r.thisWeek > r.lastWeek) cur.classList.add('up');
+      else if (r.thisWeek < r.lastWeek) cur.classList.add('down');
+      nums.appendChild(cur);
+      nums.appendChild(el('span', 'calls30-last', String(r.lastWeek)));
+      row.appendChild(nums);
       c30.appendChild(row);
     });
 

@@ -41,8 +41,8 @@ const LINES = {
   ddrSales: 844037,    // Drone Deer +1 234-423-4979
 };
 
-// "Calls — Inbound 30 Days" panel rows.
-const CALLS_30D_ROWS = [
+// "Calls — Inbound, This Week vs Last Week" panel rows.
+const CALLS_LINES = [
   { label: 'OH nuWay Ag Sales', ids: [LINES.ohSales], brand: 'nuway' },
   { label: 'KS nuWay Ag Sales', ids: [LINES.ksSales], brand: 'nuway' },
   { label: 'Drone Deer', ids: [LINES.ddrSales], brand: 'ddr' },
@@ -397,11 +397,13 @@ async function aircallDayBucket(env, ymd) {
   return bucket;
 }
 
-// 30-day per-number history from KV; lazily backfills up to `maxBackfill`
+// Per-number daily call history from KV (last `HISTORY_DAYS` completed days —
+// enough to cover this week + last week); lazily backfills up to `maxBackfill`
 // missing days in the background.
+const HISTORY_DAYS = 14;
 async function aircallHistory(env, ctx, todayYmd, maxBackfill = 4) {
   const days = [];
-  for (let i = 1; i <= 29; i++) days.push(addDays(todayYmd, -i));
+  for (let i = 1; i <= HISTORY_DAYS; i++) days.push(addDays(todayYmd, -i));
   const got = await Promise.all(days.map((d) => env.CALL_STATS.get(`calls:v2:${d}`, 'json')));
   const buckets = {};
   const missing = [];
@@ -492,7 +494,7 @@ async function buildData(env, ctx) {
     guard('ddrSoldPrev', shopifySoldUnits(env, 'ddr', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
     guard('callsToday', aircallCalls(env, Math.floor(todayStart / 1000), Math.floor(nowMs / 1000)), []),
     guard('callsYesterday', aircallInbound(env, Math.floor(todayStart / 1000) - 86400, Math.floor(todayStart / 1000) - 1), []),
-    guard('callsHistory', aircallHistory(env, ctx, todayYmd), { buckets: {}, missingDays: 29 }),
+    guard('callsHistory', aircallHistory(env, ctx, todayYmd), { buckets: {}, missingDays: HISTORY_DAYS }),
     guard('inventory', finaleStock(env), []),
   ]);
 
@@ -535,13 +537,26 @@ async function buildData(env, ctx) {
     yesterdaySameTime: tallyCalls(ySameTime, ids).total,
   });
 
-  // --- Calls: 30-day panel (29 completed days from KV + today live) ---
-  const last30 = CALLS_30D_ROWS.map((row) => {
-    let n = tallyCalls(inboundToday, row.ids).total;
-    for (const b of Object.values(history.buckets)) {
-      for (const id of row.ids) n += b[id]?.in || 0;
+  // --- Calls: this week vs last week (inbound) ---
+  // This week = Mon→now (completed days from KV + today's live partial).
+  // Last week = last Mon → same weekday last week (full days from KV), the
+  // same span so it's a like-for-like week-to-date pace comparison.
+  const thisMonYmd = etDateStr(weekStart);
+  const lastMonYmd = etDateStr(lastWeekStart);
+  const dow = Math.round((todayStart - weekStart) / 86400000); // 0=Mon … 6=Sun
+  const weekSum = (monYmd, fromK, toK, ids) => {
+    let n = 0;
+    for (let k = fromK; k <= toK; k++) {
+      const b = history.buckets[addDays(monYmd, k)];
+      if (!b) continue;
+      for (const id of ids) n += b[id]?.in || 0;
     }
-    return { label: row.label, brand: row.brand, total: n };
+    return n;
+  };
+  const callsWeek = CALLS_LINES.map((row) => {
+    const thisWeek = weekSum(thisMonYmd, 0, dow - 1, row.ids) + tallyCalls(inboundToday, row.ids).total;
+    const lastWeek = weekSum(lastMonYmd, 0, dow, row.ids);
+    return { label: row.label, brand: row.brand, thisWeek, lastWeek };
   });
 
   // --- Sold this week ---
@@ -570,7 +585,7 @@ async function buildData(env, ctx) {
       nuwaySales: { oh: box([LINES.ohSales]), ks: box([LINES.ksSales]) },
       nuwayService: { oh: box([LINES.ohService]), ks: box([LINES.ksService]) },
       ddrSales: box([LINES.ddrSales]),
-      last30,
+      week: callsWeek,
       talkTime: topTalker(callsToday),
       historyMissingDays: history.missingDays,
     },
@@ -589,7 +604,7 @@ async function buildData(env, ctx) {
 //
 // Bump the key version whenever the payload SHAPE changes so a deploy is a
 // clean miss instead of serving the old shape.
-const KV_PAYLOAD_KEY = 'payload:v2-ohks';
+const KV_PAYLOAD_KEY = 'payload:v3-callweek';
 
 async function getData(env, ctx) {
   const cached = await env.CALL_STATS.get(KV_PAYLOAD_KEY, 'json');
