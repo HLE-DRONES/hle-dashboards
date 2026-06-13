@@ -9,10 +9,16 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
 
-# Daily per-number Aircall call buckets (calls:v2:YYYY-MM-DD).
+# Daily per-number Aircall call buckets (calls:v2:YYYY-MM-DD) + the warmed
+# dashboard payload (payload:v2-ohks) the cron keeps fresh.
 [[kv_namespaces]]
 binding = "CALL_STATS"
 id = "32613ac84ed64c238e91f5fad50282c8"
+
+# Cron keeps the KV payload warm every 5 min so viewers never wait on the
+# Shopify/Aircall/Finale aggregation.
+[triggers]
+crons = ["*/5 * * * *"]
 
 [vars]
 # AUD of the dashboards.hle.team Cloudflare Access app
