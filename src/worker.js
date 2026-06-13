@@ -582,7 +582,9 @@ async function buildData(env, ctx) {
 
 // ---------- CACHING ----------
 
-const CACHE_KEY = 'https://hle-dashboards.internal/api/data';
+// Bump the version segment whenever the payload SHAPE changes, so a deploy
+// is a clean cache miss instead of serving the old shape for up to an hour.
+const CACHE_KEY = 'https://hle-dashboards.internal/api/data?v=2-ohks';
 
 async function getData(env, ctx) {
   const cache = caches.default;
