@@ -9,17 +9,15 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
 
-# Daily per-number Aircall call buckets (calls:v1:YYYY-MM-DD).
-# Create with: wrangler kv namespace create CALL_STATS
-# then paste the id below before the first deploy.
+# Daily per-number Aircall call buckets (calls:v2:YYYY-MM-DD).
 [[kv_namespaces]]
 binding = "CALL_STATS"
-id = "REPLACE_AT_DEPLOY"
+id = "32613ac84ed64c238e91f5fad50282c8"
 
 [vars]
-# AUD of the dashboards.hle.team Cloudflare Access app. Empty until the app
-# is created (see README); while empty the Worker only serves localhost.
-ACCESS_AUD = ""
+# AUD of the dashboards.hle.team Cloudflare Access app
+# (app id 97e0adc0-5e70-4237-a5e3-173cb1b5550c, created 2026-06-12).
+ACCESS_AUD = "105ec74620b918204b7d0155988a78a7f8fc4b02780895b30055e38698770449"
 
 # Secrets (set via `wrangler secret put <NAME>`, values in macOS Keychain):
 #   SHOPIFY_CLIENT_ID      — Keychain SHOPIFY_CLIENT_ID_dev_access_nuway
