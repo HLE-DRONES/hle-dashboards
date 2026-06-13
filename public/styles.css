@@ -52,10 +52,17 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
 .logo-hle { font: 900 24px/1 var(--font-body); letter-spacing: 0.02em; }
 .logo-drones { font: 500 24px/1 var(--font-body); letter-spacing: 0.18em; }
 .band-divider { width: 1px; height: 32px; background: #525454; }
-.band-title {
+.band-nav { display: flex; align-items: center; gap: 28px; }
+.band-nav a {
   font: 600 15px/1 var(--font-body); letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--gray-400);
+  text-transform: uppercase; color: var(--gray-500);
+  text-decoration: none;
+  padding: 6px 0 5px;
+  border-bottom: 2px solid transparent;
+  transition: color 150ms ease-out;
 }
+.band-nav a:hover { color: var(--gray-300); }
+.band-nav a.active { color: var(--white); border-bottom-color: var(--bone); }
 .live { display: flex; align-items: center; gap: 10px; }
 .live-dot {
   width: 9px; height: 9px; border-radius: 999px;

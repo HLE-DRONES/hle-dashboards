@@ -1,4 +1,18 @@
-# Company Dashboard — HLE Sales Ops Wallboard
+# HLE Dashboards — Sales Ops Wallboards
+
+Multi-dashboard project: the header band is a nav (`public/boards.js`), with
+the Company Dashboard at `/` and room for future boards beside it.
+
+## Adding a dashboard
+
+1. Add `{ path: '/sales', label: 'Sales' }` to `BOARDS` in `public/boards.js`.
+2. Create `public/sales.html` — copy the header band + footer from
+   `index.html` (keep the `#band-nav` element and the `boards.js` include);
+   the asset handler serves `/sales` from `sales.html` automatically.
+3. If it needs live data, add an endpoint in `src/worker.js` (e.g.
+   `/api/sales`) next to `/api/data`.
+
+## Company Dashboard (`/`)
 
 1920×1080 wallboard (scales to any screen) showing live company numbers,
 built from the Claude Design handoff "Company Dashboard - HLE" on the
