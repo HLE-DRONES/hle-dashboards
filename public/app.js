@@ -271,32 +271,27 @@
       $('talk-dur').textContent = '—';
     }
 
-    // Sold this week ledger
+    // Sold this week vs last week's PACE through the same point in the week.
+    // "/N" = how many we'd sold by this same day/time last week. On track =
+    // matching or beating that pace; behind = under it.
     var ledger = $('soldWeek');
     ledger.innerHTML = '';
-    var dow = (new Date().getDay() + 6) % 7; // 0 = Monday
-    var weekFrac = Math.min(1, (dow + 1) / 7);
     data.soldWeek.forEach(function (r) {
       var row = el('div', 'ledger-row');
       var count = el('span', 'ledger-count');
       count.appendChild(el('span', 'ledger-sold', String(r.sold)));
-      count.appendChild(el('span', 'ledger-target', '/' + r.target));
+      count.appendChild(el('span', 'ledger-target', '/' + r.lastWeek));
       row.appendChild(count);
       row.appendChild(el('span', 'ledger-name', r.label));
-      var cls = r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : r.sold === 0 ? 'zero' : 'flat';
-      var txt = r.delta > 0 ? '+' + r.delta : r.delta < 0 ? String(r.delta) : r.sold === 0 ? '0' : '—';
+      var cls = r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : 'flat';
+      var txt = r.delta > 0 ? '+' + r.delta : r.delta < 0 ? String(r.delta) : '±0';
       row.appendChild(el('span', 'ledger-delta ' + cls, txt));
-      // Badge: on/ahead of full-week target = success; under half of the
-      // pro-rated pace = review; in between = no badge (design shows both).
-      var badge = null;
-      if (r.sold >= r.target) badge = ['success', 'On target'];
-      else if (r.sold < r.target * weekFrac * 0.5) badge = ['danger', 'Review'];
-      if (badge) {
-        var b = el('span', 'badge ' + badge[0]);
-        b.appendChild(el('span', 'badge-dot'));
-        b.appendChild(document.createTextNode(badge[1]));
-        row.appendChild(b);
-      }
+      // On track if matching/beating last week's same-point pace; else behind.
+      var badge = r.delta >= 0 ? ['success', 'On track'] : ['danger', 'Behind'];
+      var b = el('span', 'badge ' + badge[0]);
+      b.appendChild(el('span', 'badge-dot'));
+      b.appendChild(document.createTextNode(badge[1]));
+      row.appendChild(b);
       ledger.appendChild(row);
     });
   }
