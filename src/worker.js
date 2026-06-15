@@ -477,6 +477,12 @@ async function buildData(env, ctx) {
   const lastWeekStart = weekStart - 7 * 86400 * 1000;
   const series180Start = etToUtc(...Object.values(parseYmd(addDays(todayYmd, -179))));
 
+  // Day-of-week (0=Mon) and the matching window in last week, used so calls
+  // compare this-week-through-now against last-week-through-the-same-point.
+  const dow = Math.round((todayStart - weekStart) / 86400000); // 0=Mon … 6=Sun
+  const elapsedToday = nowMs - todayStart;
+  const lwSameDayStart = lastWeekStart + dow * 86400 * 1000;
+
   const errors = {};
   const guard = (label, p, fallback) =>
     p.catch((e) => { errors[label] = String(e?.message || e).slice(0, 200); return fallback; });
@@ -484,7 +490,7 @@ async function buildData(env, ctx) {
   const [
     nuwayDaily, ddrDaily,
     nuwaySoldWk, ddrSoldWk, nuwaySoldLastWk, ddrSoldLastWk,
-    callsToday, callsYesterday, history, inventory,
+    callsToday, callsYesterday, lastWkPartial, history, inventory,
   ] = await Promise.all([
     guard('nuwaySales', shopifyDailyRevenue(env, STORES.nuway, series180Start), {}),
     guard('ddrSales', shopifyDailyRevenue(env, STORES.ddr, series180Start), {}),
@@ -494,6 +500,7 @@ async function buildData(env, ctx) {
     guard('ddrSoldPrev', shopifySoldUnits(env, 'ddr', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
     guard('callsToday', aircallCalls(env, Math.floor(todayStart / 1000), Math.floor(nowMs / 1000)), []),
     guard('callsYesterday', aircallInbound(env, Math.floor(todayStart / 1000) - 86400, Math.floor(todayStart / 1000) - 1), []),
+    guard('callsLastWkPartial', aircallInbound(env, Math.floor(lwSameDayStart / 1000), Math.floor((lwSameDayStart + elapsedToday) / 1000)), []),
     guard('callsHistory', aircallHistory(env, ctx, todayYmd), { buckets: {}, missingDays: HISTORY_DAYS }),
     guard('inventory', finaleStock(env), []),
   ]);
@@ -537,13 +544,14 @@ async function buildData(env, ctx) {
     yesterdaySameTime: tallyCalls(ySameTime, ids).total,
   });
 
-  // --- Calls: this week vs last week (inbound) ---
-  // This week = Mon→now (completed days from KV + today's live partial).
-  // Last week = last Mon → same weekday last week (full days from KV), the
-  // same span so it's a like-for-like week-to-date pace comparison.
+  // --- Calls: this week vs last week, through the SAME point in the week ---
+  // Both sides span Mon 00:00 → now: completed days come from the KV daily
+  // buckets (offsets 0..dow-1), and the current partial day is live —
+  // inboundToday for this week, and lastWkPartial (a live query for last
+  // week's same weekday through the same time) for last week. So on Monday
+  // it's this-Mon-to-now vs last-Mon-to-the-same-time, never a full day.
   const thisMonYmd = etDateStr(weekStart);
   const lastMonYmd = etDateStr(lastWeekStart);
-  const dow = Math.round((todayStart - weekStart) / 86400000); // 0=Mon … 6=Sun
   const weekSum = (monYmd, fromK, toK, ids) => {
     let n = 0;
     for (let k = fromK; k <= toK; k++) {
@@ -555,20 +563,23 @@ async function buildData(env, ctx) {
   };
   const callsWeek = CALLS_LINES.map((row) => {
     const thisWeek = weekSum(thisMonYmd, 0, dow - 1, row.ids) + tallyCalls(inboundToday, row.ids).total;
-    const lastWeek = weekSum(lastMonYmd, 0, dow, row.ids);
+    const lastWeek = weekSum(lastMonYmd, 0, dow - 1, row.ids) + tallyCalls(lastWkPartial, row.ids).total;
     return { label: row.label, brand: row.brand, thisWeek, lastWeek };
   });
 
-  // --- Sold this week ---
+  // --- Sold this week, vs last week's PACE through the same point in the week ---
+  // `lastWeek` = units sold last week from Monday through the same elapsed
+  // offset (Mon→now). So on Monday it's last Monday-to-this-time; on Wednesday
+  // it's last Mon–Wed-to-this-time. On track = matching/beating that pace.
   const soldWeek = SOLD_ROWS.map((r) => {
     const pick = (a, b) => (a[r.label] || 0) + (b[r.label] || 0);
     const sold = r.store === 'nuway' ? (nuwaySoldWk[r.label] || 0)
       : r.store === 'ddr' ? (ddrSoldWk[r.label] || 0)
       : pick(nuwaySoldWk, ddrSoldWk);
-    const prev = r.store === 'nuway' ? (nuwaySoldLastWk[r.label] || 0)
+    const lastWeek = r.store === 'nuway' ? (nuwaySoldLastWk[r.label] || 0)
       : r.store === 'ddr' ? (ddrSoldLastWk[r.label] || 0)
       : pick(nuwaySoldLastWk, ddrSoldLastWk);
-    return { label: r.label, brand: r.brand, sold, target: r.target, delta: sold - prev };
+    return { label: r.label, brand: r.brand, sold, lastWeek, delta: sold - lastWeek };
   });
 
   return {
@@ -604,7 +615,7 @@ async function buildData(env, ctx) {
 //
 // Bump the key version whenever the payload SHAPE changes so a deploy is a
 // clean miss instead of serving the old shape.
-const KV_PAYLOAD_KEY = 'payload:v3-callweek';
+const KV_PAYLOAD_KEY = 'payload:v4-soldpace';
 
 async function getData(env, ctx) {
   const cached = await env.CALL_STATS.get(KV_PAYLOAD_KEY, 'json');
