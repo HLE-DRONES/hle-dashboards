@@ -18,18 +18,20 @@
   window.addEventListener('resize', rescale);
   rescale();
 
-  // ----- clock -----
+  // ----- clock (always Eastern — the signage renderer's browser runs in UTC,
+  //        so device-local time would be wrong; force America/New_York) -----
+  var TZ = 'America/New_York';
   var MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-  var DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+  var clockFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ, hour12: true, weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
   function tickClock() {
-    var d = new Date();
-    var h = d.getHours();
-    var ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12 || 12;
-    var m = String(d.getMinutes()).padStart(2, '0');
-    document.getElementById('clock').textContent = h + ':' + m + ' ' + ampm;
+    var p = {};
+    clockFmt.formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; });
+    document.getElementById('clock').textContent = p.hour + ':' + p.minute + ' ' + (p.dayPeriod || '').toUpperCase();
     document.getElementById('dateStr').textContent =
-      DAYS[d.getDay()] + ' ' + MONTHS[d.getMonth()] + ' ' + d.getDate();
+      (p.weekday + ' ' + p.month + ' ' + p.day).toUpperCase();
   }
   tickClock();
   setInterval(tickClock, 15000);
