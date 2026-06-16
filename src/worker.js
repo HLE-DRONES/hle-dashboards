@@ -71,13 +71,13 @@ const INVENTORY_ITEMS = [
 // where the model overlaps; targets are weekly unit targets (edit freely).
 const SOLD_ROWS = [
   { label: 'Matrice 4T', store: 'ddr', rule: { equals: 'DJI-ENT-DRN-M4T' }, target: 12, brand: 'ddr' },
+  { label: 'Matrice 4TD', store: 'ddr', rule: { prefix: 'DJI-ENT-DRN-M4TD' }, target: 6, brand: 'ddr' },
   { label: 'Monitor', store: 'ddr', rule: { prefix: 'DDR-MNT-HSHC-24' }, target: 10, brand: 'ddr' },
   { label: 'T100', store: 'nuway', rule: { equals: 'DJI-AGR-DR-T100' }, target: 15, brand: 'nuway' },
-  { label: 'Matrice 4TD', store: 'ddr', rule: { prefix: 'DJI-ENT-DRN-M4TD' }, target: 6, brand: 'ddr' },
-  { label: 'FastPass', store: 'nuway', rule: { equals: 'NUW-CMP-P37-PT137-PP' }, target: 5, brand: 'nuway' },
-  { label: 'nuWay Ag Trailer', store: 'nuway', rule: { prefixAny: ['NUW-TRL-MLDT-', 'NUW-TRL-MEGA-'] }, target: 3, brand: 'nuway' },
   { label: 'T50 Drone', store: 'nuway', rule: { equals: 'DJI-AGR-DRN-T50' }, target: 4, brand: 'nuway' },
+  { label: 'nuWay Ag Trailer', store: 'nuway', rule: { prefixAny: ['NUW-TRL-MLDT-', 'NUW-TRL-MEGA-'] }, target: 3, brand: 'nuway' },
   { label: 'Regulation Support', store: 'both', rule: { prefixAny: ['NUW-SRV-REGLIC', 'NUW-CMP-REGLIC', 'NUW-AGR-REGLIC'] }, target: 2, brand: 'nuway' },
+  { label: 'FastPass', store: 'nuway', rule: { equals: 'NUW-CMP-P37-PT137-PP' }, target: 5, brand: 'nuway' },
 ];
 
 // Hero "drones sold MTD" cells — whole-drone unit counts, scanned across BOTH
@@ -536,6 +536,7 @@ async function buildData(env, ctx) {
   const todayYmd = etDateStr(now);
   const todayStart = etTodayStart(now);
   const monthStart = etMonthStart(now);
+  const yearStart = etToUtc(parseYmd(todayYmd).y, 1, 1); // Jan 1 ET — for YTD drone units
   const weekStart = etWeekStart(now);
   const lastWeekStart = weekStart - 7 * 86400 * 1000;
   const series180Start = etToUtc(...Object.values(parseYmd(addDays(todayYmd, -179))));
@@ -553,7 +554,7 @@ async function buildData(env, ctx) {
   const [
     nuwayDaily, ddrDaily,
     nuwaySoldWk, ddrSoldWk, nuwaySoldLastWk, ddrSoldLastWk,
-    nuwayDronesMTD, ddrDronesMTD,
+    nuwayDronesYTD, ddrDronesYTD,
     callsToday, callsYesterday, lastWkPartial, history, inventory,
   ] = await Promise.all([
     guard('nuwaySales', shopifyDailyRevenue(env, STORES.nuway, series180Start), {}),
@@ -562,8 +563,8 @@ async function buildData(env, ctx) {
     guard('ddrSold', shopifySoldUnits(env, 'ddr', weekStart, nowMs), {}),
     guard('nuwaySoldPrev', shopifySoldUnits(env, 'nuway', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
     guard('ddrSoldPrev', shopifySoldUnits(env, 'ddr', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
-    guard('nuwayDronesMTD', shopifyDroneUnits(env, 'nuway', monthStart, nowMs), { ag: 0, ent: 0 }),
-    guard('ddrDronesMTD', shopifyDroneUnits(env, 'ddr', monthStart, nowMs), { ag: 0, ent: 0 }),
+    guard('nuwayDronesYTD', shopifyDroneUnits(env, 'nuway', yearStart, nowMs), { ag: 0, ent: 0 }),
+    guard('ddrDronesYTD', shopifyDroneUnits(env, 'ddr', yearStart, nowMs), { ag: 0, ent: 0 }),
     guard('callsToday', aircallCalls(env, Math.floor(todayStart / 1000), Math.floor(nowMs / 1000)), []),
     guard('callsYesterday', aircallInbound(env, Math.floor(todayStart / 1000) - 86400, Math.floor(todayStart / 1000) - 1), []),
     guard('callsLastWkPartial', aircallInbound(env, Math.floor(lwSameDayStart / 1000), Math.floor((lwSameDayStart + elapsedToday) / 1000)), []),
@@ -652,15 +653,16 @@ async function buildData(env, ctx) {
     generatedAt: now.toISOString(),
     timezone: TZ,
     monthStart: etDateStr(monthStart),
+    yearStart: etDateStr(yearStart),
     today: todayYmd,
     sales: {
       ddr: { mtd: mtd(ddrDaily), series: series(ddrDaily) },
       nuway: { mtd: mtd(nuwayDaily), series: series(nuwayDaily) },
       seriesStart: seriesDays[0],
-      // Hero MTD cells: whole-drone units sold this month, both stores.
-      unitsMTD: {
-        ag: (nuwayDronesMTD.ag || 0) + (ddrDronesMTD.ag || 0),
-        ent: (nuwayDronesMTD.ent || 0) + (ddrDronesMTD.ent || 0),
+      // Hero cells: whole-drone units sold YEAR-to-date, both stores.
+      unitsYTD: {
+        ag: (nuwayDronesYTD.ag || 0) + (ddrDronesYTD.ag || 0),
+        ent: (nuwayDronesYTD.ent || 0) + (ddrDronesYTD.ent || 0),
       },
     },
     calls: {
@@ -686,7 +688,7 @@ async function buildData(env, ctx) {
 //
 // Bump the key version whenever the payload SHAPE changes so a deploy is a
 // clean miss instead of serving the old shape.
-const KV_PAYLOAD_KEY = 'payload:v5-droneunits';
+const KV_PAYLOAD_KEY = 'payload:v6-ytd-order';
 
 async function getData(env, ctx) {
   const cached = await env.CALL_STATS.get(KV_PAYLOAD_KEY, 'json');

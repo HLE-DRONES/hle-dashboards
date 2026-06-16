@@ -175,13 +175,13 @@
 
   // ----- render -----
   function render(data) {
-    // Hero: drones sold MTD (unit counts, not revenue)
-    var units = data.sales.unitsMTD || { ag: 0, ent: 0 };
+    // Hero: drones sold YTD (unit counts, not revenue)
+    var units = data.sales.unitsYTD || { ag: 0, ent: 0 };
     $('units-ag').textContent = String(units.ag);
     $('units-ent').textContent = String(units.ent);
-    var ms = new Date(data.monthStart + 'T12:00:00');
+    var ys = new Date((data.yearStart || data.monthStart) + 'T12:00:00');
     var td = new Date(data.today + 'T12:00:00');
-    var range = MONTHS[ms.getMonth()] + ' ' + ms.getDate() + ' — ' + MONTHS[td.getMonth()] + ' ' + td.getDate();
+    var range = MONTHS[ys.getMonth()] + ' ' + ys.getDate() + ' — ' + MONTHS[td.getMonth()] + ' ' + td.getDate();
     $('mtd-range-1').textContent = range;
     $('mtd-range-2').textContent = range;
 
