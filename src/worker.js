@@ -80,6 +80,24 @@ const SOLD_ROWS = [
   { label: 'Regulation Support', store: 'both', rule: { prefixAny: ['NUW-SRV-REGLIC', 'NUW-CMP-REGLIC', 'NUW-AGR-REGLIC'] }, target: 2, brand: 'nuway' },
 ];
 
+// Hero "drones sold MTD" cells — whole-drone unit counts, scanned across BOTH
+// stores by SKU (the AGR/ENT SKU prefix is the reliable category signal, not
+// the store). Rules use the skuMatches format (equals / prefix / prefixAny).
+const DRONE_CATEGORIES = {
+  ag: [
+    { equals: 'DJI-AGR-DR-T100' },                          // T100
+    { equals: 'DJI-AGR-DRN-T50' },                          // T50
+    { equals: 'TLS-AGR-T60X-DRN' },                         // T60X (Talos)
+    { prefixAny: ['DJI-AGR-DR-T60X', 'DJI-AGR-DRN-T60X'] }, // legacy T60X SKUs
+  ],
+  ent: [
+    { equals: 'DJI-ENT-DRN-M4T' },     // M4T
+    { prefix: 'DJI-ENT-DRN-M4TD' },    // M4TD + dock bundle
+    { prefix: 'DJI-ENT-DRN-M30T' },    // M30T
+    { prefix: 'DJI-ENT-DRN-M400' },    // M400 + LiDAR/Thermal bundles
+  ],
+};
+
 // ---------- CLOUDFLARE ACCESS JWT VERIFICATION ----------
 // Same pattern as faa-aircraft: requests must carry a valid Access JWT.
 // ACCESS_AUD is a wrangler var, set once the Access app exists. Until then
@@ -325,6 +343,51 @@ async function shopifySoldUnits(env, storeKey, fromMs, toMs) {
   return counts;
 }
 
+// Whole-drone units sold per category (ag / ent) for one store in
+// [fromMs, toMs). Same net-of-cancellations/refunds counting as the
+// scorecard: cancelled orders skipped, refunded quantities subtracted.
+async function shopifyDroneUnits(env, storeKey, fromMs, toMs) {
+  const store = STORES[storeKey];
+  const q = `query($q: String!, $after: String) {
+    orders(first: 100, after: $after, query: $q) {
+      pageInfo { hasNextPage endCursor }
+      edges { node {
+        cancelledAt
+        lineItems(first: 100) { edges { node { sku quantity } } }
+        refunds { refundLineItems(first: 100) { edges { node { quantity lineItem { sku } } } } }
+      } }
+    }
+  }`;
+  const qs = `created_at:>=${new Date(fromMs).toISOString()} created_at:<${new Date(toMs).toISOString()} status:any`;
+  const cat = (sku) => {
+    if (DRONE_CATEGORIES.ag.some((r) => skuMatches(sku, r))) return 'ag';
+    if (DRONE_CATEGORIES.ent.some((r) => skuMatches(sku, r))) return 'ent';
+    return null;
+  };
+  const counts = { ag: 0, ent: 0 };
+  let after = null;
+  for (let page = 0; page < 20; page++) {
+    const data = await shopifyGql(env, store, q, { q: qs, after });
+    for (const e of data.orders.edges) {
+      const o = e.node;
+      if (o.cancelledAt) continue;
+      for (const li of o.lineItems.edges) {
+        const c = cat(li.node.sku);
+        if (c) counts[c] += li.node.quantity;
+      }
+      for (const ref of o.refunds || []) {
+        for (const rli of ref.refundLineItems.edges) {
+          const c = cat(rli.node.lineItem?.sku);
+          if (c) counts[c] -= rli.node.quantity;
+        }
+      }
+    }
+    if (!data.orders.pageInfo.hasNextPage) break;
+    after = data.orders.pageInfo.endCursor;
+  }
+  return counts;
+}
+
 // ---------- AIRCALL ----------
 
 function aircallAuth(env) {
@@ -490,6 +553,7 @@ async function buildData(env, ctx) {
   const [
     nuwayDaily, ddrDaily,
     nuwaySoldWk, ddrSoldWk, nuwaySoldLastWk, ddrSoldLastWk,
+    nuwayDronesMTD, ddrDronesMTD,
     callsToday, callsYesterday, lastWkPartial, history, inventory,
   ] = await Promise.all([
     guard('nuwaySales', shopifyDailyRevenue(env, STORES.nuway, series180Start), {}),
@@ -498,6 +562,8 @@ async function buildData(env, ctx) {
     guard('ddrSold', shopifySoldUnits(env, 'ddr', weekStart, nowMs), {}),
     guard('nuwaySoldPrev', shopifySoldUnits(env, 'nuway', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
     guard('ddrSoldPrev', shopifySoldUnits(env, 'ddr', lastWeekStart, lastWeekStart + (nowMs - weekStart)), {}),
+    guard('nuwayDronesMTD', shopifyDroneUnits(env, 'nuway', monthStart, nowMs), { ag: 0, ent: 0 }),
+    guard('ddrDronesMTD', shopifyDroneUnits(env, 'ddr', monthStart, nowMs), { ag: 0, ent: 0 }),
     guard('callsToday', aircallCalls(env, Math.floor(todayStart / 1000), Math.floor(nowMs / 1000)), []),
     guard('callsYesterday', aircallInbound(env, Math.floor(todayStart / 1000) - 86400, Math.floor(todayStart / 1000) - 1), []),
     guard('callsLastWkPartial', aircallInbound(env, Math.floor(lwSameDayStart / 1000), Math.floor((lwSameDayStart + elapsedToday) / 1000)), []),
@@ -591,6 +657,11 @@ async function buildData(env, ctx) {
       ddr: { mtd: mtd(ddrDaily), series: series(ddrDaily) },
       nuway: { mtd: mtd(nuwayDaily), series: series(nuwayDaily) },
       seriesStart: seriesDays[0],
+      // Hero MTD cells: whole-drone units sold this month, both stores.
+      unitsMTD: {
+        ag: (nuwayDronesMTD.ag || 0) + (ddrDronesMTD.ag || 0),
+        ent: (nuwayDronesMTD.ent || 0) + (ddrDronesMTD.ent || 0),
+      },
     },
     calls: {
       nuwaySales: { oh: box([LINES.ohSales]), ks: box([LINES.ksSales]) },
@@ -615,7 +686,7 @@ async function buildData(env, ctx) {
 //
 // Bump the key version whenever the payload SHAPE changes so a deploy is a
 // clean miss instead of serving the old shape.
-const KV_PAYLOAD_KEY = 'payload:v4-soldpace';
+const KV_PAYLOAD_KEY = 'payload:v5-droneunits';
 
 async function getData(env, ctx) {
   const cached = await env.CALL_STATS.get(KV_PAYLOAD_KEY, 'json');
