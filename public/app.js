@@ -175,9 +175,10 @@
 
   // ----- render -----
   function render(data) {
-    // Hero: MTD
-    var mtdDdr = $('mtd-ddr'); mtdDdr.innerHTML = ''; mtdDdr.appendChild(moneyShort(data.sales.ddr.mtd));
-    var mtdNw = $('mtd-nuway'); mtdNw.innerHTML = ''; mtdNw.appendChild(moneyShort(data.sales.nuway.mtd));
+    // Hero: drones sold MTD (unit counts, not revenue)
+    var units = data.sales.unitsMTD || { ag: 0, ent: 0 };
+    $('units-ag').textContent = String(units.ag);
+    $('units-ent').textContent = String(units.ent);
     var ms = new Date(data.monthStart + 'T12:00:00');
     var td = new Date(data.today + 'T12:00:00');
     var range = MONTHS[ms.getMonth()] + ' ' + ms.getDate() + ' — ' + MONTHS[td.getMonth()] + ' ' + td.getDate();
