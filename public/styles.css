@@ -63,6 +63,11 @@ html, body { margin: 0; padding: 0; background: var(--ink-950); }
 }
 .band-nav a:hover { color: var(--gray-300); }
 .band-nav a.active { color: var(--white); border-bottom-color: var(--bone); }
+.band-nav .soon {
+  font: 600 15px/1 var(--font-body); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--gray-500);
+  padding: 6px 0 5px; opacity: 0.5; cursor: default;
+}
 .live { display: flex; align-items: center; gap: 10px; }
 .live-dot {
   width: 9px; height: 9px; border-radius: 999px;

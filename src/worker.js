@@ -729,13 +729,24 @@ export default {
 
     if (!isLocal) {
       if (host.endsWith('.workers.dev')) {
-        return new Response(null, { status: 301, headers: { Location: `https://${CANONICAL_HOST}/` } });
+        return new Response(null, { status: 301, headers: { Location: `https://${CANONICAL_HOST}/sales` } });
       }
       if (!env.ACCESS_AUD) {
         return new Response('Access not configured (ACCESS_AUD unset).\n', { status: 503 });
       }
       const denied = await requireAccess(request, env.ACCESS_AUD);
       if (denied) return denied;
+    }
+
+    // Multi-dashboard routing. Each board lives at its own path; the bare
+    // domain redirects to the default (Sales). Future boards (marketing,
+    // inventory) get their own path + HTML file + branch here.
+    const path = url.pathname.replace(/\/$/, '') || '/';
+    if (path === '/') {
+      return Response.redirect(new URL('/sales', url).toString(), 302);
+    }
+    if (path === '/sales') {
+      return env.ASSETS.fetch(new Request(new URL('/sales.html', url), request));
     }
 
     if (url.pathname === '/api/data') {
