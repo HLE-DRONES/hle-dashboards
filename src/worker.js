@@ -83,18 +83,26 @@ const SOLD_ROWS = [
 // Hero "drones sold MTD" cells — whole-drone unit counts, scanned across BOTH
 // stores by SKU (the AGR/ENT SKU prefix is the reliable category signal, not
 // the store). Rules use the skuMatches format (equals / prefix / prefixAny).
+// Classification confirmed by Kevin 2026-06-17. Prefixes catch each model's
+// airframe + its bundle/kit/used SKUs (kits explode to the airframe line on
+// completion, but the prefix also covers non-exploding bundle SKUs). ag is
+// checked before ent, so the M4E ag rule wins over any ent M4* pattern.
 const DRONE_CATEGORIES = {
   ag: [
-    { equals: 'DJI-AGR-DR-T100' },                          // T100
-    { equals: 'DJI-AGR-DRN-T50' },                          // T50
-    { equals: 'TLS-AGR-T60X-DRN' },                         // T60X (Talos)
+    { prefix: 'DJI-AGR-DR-T100' },                          // T100
+    { prefix: 'DJI-AGR-DRN-T50' },                          // T50
+    { prefix: 'DJI-AGR-DR-T25P' },                          // Agras T25P
+    { prefix: 'TLS-AGR-T60X-DRN' },                         // T60X incl. used/demo
     { prefixAny: ['DJI-AGR-DR-T60X', 'DJI-AGR-DRN-T60X'] }, // legacy T60X SKUs
+    { prefix: 'DJI-ENT-DRN-M4E' },                          // Matrice 4E (Kevin: ag)
   ],
   ent: [
-    { equals: 'DJI-ENT-DRN-M4T' },     // M4T
-    { prefix: 'DJI-ENT-DRN-M4TD' },    // M4TD + dock bundle
-    { prefix: 'DJI-ENT-DRN-M30T' },    // M30T
-    { prefix: 'DJI-ENT-DRN-M400' },    // M400 + LiDAR/Thermal bundles
+    { equals: 'DJI-ENT-DRN-M4T' },        // M4T (equals — prefix would catch M4TD/M4E)
+    { prefix: 'DJI-ENT-DRN-M4TD' },       // M4TD + dock bundle
+    { prefix: 'DJI-ENT-DRN-M30T' },       // M30T
+    { prefix: 'DJI-ENT-DRN-M400' },       // M400 + LiDAR/Thermal bundles
+    { prefix: 'DJI-ENT-DRN-M3MLTSPC' },   // Mavic 3 Multispectral (Kevin: enterprise)
+    { prefix: 'DJI-ENT-DRN-FLCRT' },      // FlyCart 100 cargo (Kevin: enterprise)
   ],
 };
 
@@ -281,7 +289,9 @@ async function shopifyDailyRevenue(env, store, sinceMs) {
   const qs = `created_at:>=${new Date(sinceMs).toISOString()} status:any`;
   const daily = {};
   let after = null;
-  for (let page = 0; page < 40; page++) {
+  // 180-day window is ~2.5k orders/store today; high cap so growth never
+  // silently truncates the series (same trap as the YTD drone count).
+  for (let page = 0; page < 200; page++) {
     const data = await shopifyGql(env, store, q, { q: qs, after });
     for (const e of data.orders.edges) {
       const o = e.node;
@@ -366,7 +376,10 @@ async function shopifyDroneUnits(env, storeKey, fromMs, toMs) {
   };
   const counts = { ag: 0, ent: 0 };
   let after = null;
-  for (let page = 0; page < 20; page++) {
+  // Paginate the WHOLE window. YTD per store is ~3,000 orders (>20 pages) —
+  // a low cap silently drops the most recent orders and freezes the count.
+  // 200-page guard (20k orders) is a runaway backstop, not a real limit.
+  for (let page = 0; page < 200; page++) {
     const data = await shopifyGql(env, store, q, { q: qs, after });
     for (const e of data.orders.edges) {
       const o = e.node;
@@ -688,7 +701,7 @@ async function buildData(env, ctx) {
 //
 // Bump the key version whenever the payload SHAPE changes so a deploy is a
 // clean miss instead of serving the old shape.
-const KV_PAYLOAD_KEY = 'payload:v6-ytd-order';
+const KV_PAYLOAD_KEY = 'payload:v7-fullpage';
 
 async function getData(env, ctx) {
   const cached = await env.CALL_STATS.get(KV_PAYLOAD_KEY, 'json');
